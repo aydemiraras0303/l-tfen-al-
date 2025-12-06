@@ -1,0 +1,69 @@
+const express = require("express");
+const app = express();
+const server = require("http").createServer(app);
+const io = require("socket.io")(server);
+
+app.use(express.static(__dirname + "/"));
+
+let players = {};
+let allFurniture = {};
+
+io.on("connection", socket => {
+    console.log("Player connected:", socket.id);
+
+    players[socket.id] = {
+        id: socket.id,
+        x: 400, y:300,
+        money:0,
+        name:"Player"+socket.id.substring(0,4),
+        skin:null
+    };
+
+    socket.emit("currentPlayers", players);
+    io.emit("playerMoved", players);
+
+    // Hareket
+    socket.on("move", data => {
+        if(players[socket.id]){
+            players[socket.id].x = data.x;
+            players[socket.id].y = data.y;
+        }
+        io.emit("playerMoved", players);
+    });
+
+    // Chat
+    socket.on("chatMessage", msg => {
+        io.emit("chatMessage", {name: players[socket.id].name, msg});
+    });
+
+    // Skin değişimi
+    socket.on("changeSkin", skin => {
+        if(players[socket.id]){
+            players[socket.id].skin = skin;
+            io.emit("skinChanged", {id: socket.id, skin});
+        }
+    });
+
+    // Mobilya
+    socket.on("saveFurniture", data => {
+        allFurniture[socket.id] = data;
+        io.emit("updateFurniture", {playerId: socket.id, furniture:data});
+    });
+
+    socket.on("requestFurniture", () => {
+        if(allFurniture[socket.id]) socket.emit("loadFurniture", allFurniture[socket.id]);
+    });
+
+    socket.on("requestAllFurniture", () => {
+        socket.emit("loadAllFurniture", allFurniture);
+    });
+
+    // Disconnect
+    socket.on("disconnect", () => {
+        delete players[socket.id];
+        delete allFurniture[socket.id];
+        io.emit("playerDisconnected", socket.id);
+    });
+});
+
+server.listen(3000, ()=> console.log("Server running at http://localhost:3000"));

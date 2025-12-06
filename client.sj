@@ -167,4 +167,5 @@ function checkMiniGame(){
             document.getElementById("money").textContent=players[socket.id].money; }
         me.inMiniGame=false;
     }
+
 }
